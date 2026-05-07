@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox,
-    QHeaderView, QComboBox, QCheckBox
+    QHeaderView, QComboBox, QCheckBox, QDateEdit
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
 from controllers.tudo_junto_controllers import ControlaAsVacinas
 from controllers.paciente_dao_controller import ControladorDoPaciente
 
@@ -12,6 +12,7 @@ class ViewVacinas(QWidget):
         super().__init__()
         self.controller = ControlaAsVacinas(db_manager)
         self.paciente_controller = ControladorDoPaciente(db_manager)
+        self.id_em_edicao = None
         
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
@@ -33,10 +34,14 @@ class ViewVacinas(QWidget):
         form_layout = QFormLayout(form_widget)
         
         self.input_vacina = QLineEdit()
-        self.input_data = QLineEdit()
-        self.input_data.setPlaceholderText("DD/MM/AAAA (deixe vazio se pendente)")
+        self.input_data = QDateEdit()
+        self.input_data.setCalendarPopup(True)
+        self.input_data.setDisplayFormat("dd/MM/yyyy")
+        self.input_data.setDate(QDate.currentDate())
         self.check_pendente = QCheckBox("Vacina Pendente")
         self.check_pendente.setChecked(True)
+        self.input_data.setEnabled(False)
+        self.check_pendente.stateChanged.connect(self.on_pendente_changed)
 
         form_layout.addRow("Nome da Vacina:", self.input_vacina)
         form_layout.addRow("Data Aplicada:", self.input_data)
@@ -53,11 +58,12 @@ class ViewVacinas(QWidget):
         btn_layout.addStretch()
         self.layout.addLayout(btn_layout)
 
-        # Tabela
         self.tabela = QTableWidget()
         self.tabela.setColumnCount(4)
         self.tabela.setHorizontalHeaderLabels(["ID", "Vacina", "Data", "Status"])
         self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.tabela.setSortingEnabled(True)
+        self.tabela.itemDoubleClicked.connect(self.carregar_edicao)
         self.layout.addWidget(self.tabela)
 
     def load_data(self):
@@ -72,12 +78,17 @@ class ViewVacinas(QWidget):
 
     def on_paciente_changed(self):
         paciente_id = self.combo_pacientes.currentData()
+        self.tabela.setSortingEnabled(False)
         self.tabela.setRowCount(0)
         if paciente_id:
             vacinas = self.controller.listar_vacinas_paciente(paciente_id)
             for row_idx, v in enumerate(vacinas):
                 self.tabela.insertRow(row_idx)
-                self.tabela.setItem(row_idx, 0, QTableWidgetItem(str(v['id'])))
+                
+                item_id = QTableWidgetItem()
+                item_id.setData(0, v['id'])
+                
+                self.tabela.setItem(row_idx, 0, item_id)
                 self.tabela.setItem(row_idx, 1, QTableWidgetItem(v['nome_vacina']))
                 self.tabela.setItem(row_idx, 2, QTableWidgetItem(v['data_aplicada'] or "-"))
                 
@@ -88,6 +99,45 @@ class ViewVacinas(QWidget):
                 else:
                     item_status.setForeground(Qt.GlobalColor.darkGreen)
                 self.tabela.setItem(row_idx, 3, item_status)
+        self.tabela.setSortingEnabled(True)
+        
+        self.limpar_form()
+
+    def limpar_form(self):
+        self.id_em_edicao = None
+        self.btn_salvar.setText("Registrar Vacina")
+        self.btn_salvar.setProperty("class", "SuccessButton")
+        self.btn_salvar.style().unpolish(self.btn_salvar)
+        self.btn_salvar.style().polish(self.btn_salvar)
+        
+        self.input_vacina.clear()
+        self.input_data.setDate(QDate.currentDate())
+        self.check_pendente.setChecked(True)
+
+    def carregar_edicao(self, item):
+        row = item.row()
+        self.id_em_edicao = self.tabela.item(row, 0).data(0)
+        
+        vacina = self.controller.obter_vacina(self.id_em_edicao)
+        if vacina:
+            self.input_vacina.setText(vacina['nome_vacina'])
+            self.check_pendente.setChecked(bool(vacina['pendente']))
+            
+            if not vacina['pendente'] and vacina['data_aplicada']:
+                try:
+                    date_obj = QDate.fromString(vacina['data_aplicada'], "dd/MM/yyyy")
+                    if date_obj.isValid():
+                        self.input_data.setDate(date_obj)
+                except:
+                    pass
+
+            self.btn_salvar.setText("Atualizar Registro")
+            self.btn_salvar.setProperty("class", "WarningButton")
+            self.btn_salvar.style().unpolish(self.btn_salvar)
+            self.btn_salvar.style().polish(self.btn_salvar)
+
+    def on_pendente_changed(self, state):
+        self.input_data.setEnabled(not bool(state))
 
     def salvar_vacina(self):
         paciente_id = self.combo_pacientes.currentData()
@@ -96,16 +146,19 @@ class ViewVacinas(QWidget):
             return
 
         vacina = self.input_vacina.text()
-        data = self.input_data.text()
         pendente = self.check_pendente.isChecked()
+        data = "" if pendente else self.input_data.text()
 
         if not vacina:
             QMessageBox.warning(self, "Aviso", "Nome da vacina é obrigatório.")
             return
 
-        self.controller.registrar_vacina(paciente_id, vacina, data, pendente)
-        QMessageBox.information(self, "Sucesso", "Vacina registrada.")
-        self.input_vacina.clear()
-        self.input_data.clear()
-        self.check_pendente.setChecked(True)
+        if self.id_em_edicao:
+            self.controller.atualizar_vacina(self.id_em_edicao, vacina, data, pendente)
+            QMessageBox.information(self, "Sucesso", "Vacina atualizada.")
+        else:
+            self.controller.registrar_vacina(paciente_id, vacina, data, pendente)
+            QMessageBox.information(self, "Sucesso", "Vacina registrada.")
+            
+        self.limpar_form()
         self.on_paciente_changed()

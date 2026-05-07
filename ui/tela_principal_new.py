@@ -93,6 +93,9 @@ class TelaPrincipalApp(QMainWindow):
         self.stacked_widget.addWidget(self.page_crescimento) # 4
         self.stacked_widget.addWidget(self.page_agenda)      # 5
 
+        # Conectar sinal da agenda para atualizar o dashboard
+        self.page_agenda.agendamento_criado.connect(self.page_dashboard.load_data)
+
     def navigate_to(self, index):
         # Atualizar estado dos botões
         for i, btn in enumerate(self.nav_buttons):

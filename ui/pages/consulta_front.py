@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox,
-    QHeaderView, QTextEdit, QComboBox
+    QHeaderView, QTextEdit, QComboBox, QDateEdit
 )
+from PyQt6.QtCore import QDate
 from controllers.tudo_junto_controllers import ControladorDasConsultas
 from controllers.paciente_dao_controller import ControladorDoPaciente
 
@@ -11,6 +12,7 @@ class FrontConsulta(QWidget):
         super().__init__()
         self.controller = ControladorDasConsultas(db_manager)
         self.paciente_controller = ControladorDoPaciente(db_manager)
+        self.id_em_edicao = None
         
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
@@ -31,8 +33,10 @@ class FrontConsulta(QWidget):
         form_widget = QWidget()
         form_layout = QFormLayout(form_widget)
         
-        self.input_data = QLineEdit()
-        self.input_data.setPlaceholderText("DD/MM/AAAA")
+        self.input_data = QDateEdit()
+        self.input_data.setCalendarPopup(True)
+        self.input_data.setDisplayFormat("dd/MM/yyyy")
+        self.input_data.setDate(QDate.currentDate())
         self.input_obs = QTextEdit()
         self.input_obs.setMaximumHeight(50)
         self.input_diag = QLineEdit()
@@ -60,6 +64,8 @@ class FrontConsulta(QWidget):
         self.tabela.setColumnCount(4)
         self.tabela.setHorizontalHeaderLabels(["ID", "Data", "Diagnóstico", "Prescrição"])
         self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.tabela.setSortingEnabled(True)
+        self.tabela.itemDoubleClicked.connect(self.carregar_edicao)
         self.layout.addWidget(self.tabela)
 
     def load_data(self):
@@ -75,15 +81,58 @@ class FrontConsulta(QWidget):
 
     def on_paciente_changed(self):
         paciente_id = self.combo_pacientes.currentData()
+        self.tabela.setSortingEnabled(False)
         self.tabela.setRowCount(0)
         if paciente_id:
             consultas = self.controller.listar_consultas_paciente(paciente_id)
             for row_idx, c in enumerate(consultas):
                 self.tabela.insertRow(row_idx)
-                self.tabela.setItem(row_idx, 0, QTableWidgetItem(str(c['id'])))
+                
+                item_id = QTableWidgetItem()
+                item_id.setData(0, c['id'])
+                
+                self.tabela.setItem(row_idx, 0, item_id)
                 self.tabela.setItem(row_idx, 1, QTableWidgetItem(c['data_consulta']))
                 self.tabela.setItem(row_idx, 2, QTableWidgetItem(c['diagnostico']))
                 self.tabela.setItem(row_idx, 3, QTableWidgetItem(c['prescricao']))
+        self.tabela.setSortingEnabled(True)
+                
+        # Limpar campos (Bug 8)
+        self.limpar_form()
+
+    def limpar_form(self):
+        self.id_em_edicao = None
+        self.btn_salvar.setText("Salvar Consulta")
+        self.btn_salvar.setProperty("class", "SuccessButton")
+        self.btn_salvar.style().unpolish(self.btn_salvar)
+        self.btn_salvar.style().polish(self.btn_salvar)
+        
+        self.input_data.setDate(QDate.currentDate())
+        self.input_obs.clear()
+        self.input_diag.clear()
+        self.input_presc.clear()
+
+    def carregar_edicao(self, item):
+        row = item.row()
+        self.id_em_edicao = self.tabela.item(row, 0).data(0)
+        
+        consulta = self.controller.obter_consulta(self.id_em_edicao)
+        if consulta:
+            self.input_obs.setText(consulta['observacoes'])
+            self.input_diag.setText(consulta['diagnostico'])
+            self.input_presc.setText(consulta['prescricao'])
+            
+            try:
+                date_obj = QDate.fromString(consulta['data_consulta'], "dd/MM/yyyy")
+                if date_obj.isValid():
+                    self.input_data.setDate(date_obj)
+            except:
+                pass
+
+            self.btn_salvar.setText("Atualizar Registro")
+            self.btn_salvar.setProperty("class", "WarningButton")
+            self.btn_salvar.style().unpolish(self.btn_salvar)
+            self.btn_salvar.style().polish(self.btn_salvar)
 
     def salvar_consulta(self):
         paciente_id = self.combo_pacientes.currentData()
@@ -100,10 +149,13 @@ class FrontConsulta(QWidget):
             QMessageBox.warning(self, "Aviso", "Data da consulta é obrigatória.")
             return
 
-        self.controller.criar_consulta(paciente_id, data, obs, diag, presc)
-        QMessageBox.information(self, "Sucesso", "Consulta registrada.")
-        self.input_data.clear()
-        self.input_obs.clear()
-        self.input_diag.clear()
-        self.input_presc.clear()
+        if self.id_em_edicao:
+            self.controller.atualizar_consulta(self.id_em_edicao, data, obs, diag, presc)
+            QMessageBox.information(self, "Sucesso", "Consulta atualizada.")
+        else:
+            self.controller.criar_consulta(paciente_id, data, obs, diag, presc)
+            QMessageBox.information(self, "Sucesso", "Consulta registrada.")
+            
+        self.limpar_form()
         self.on_paciente_changed()
+

@@ -9,7 +9,7 @@ QWidget#Sidebar {
     border-right: 1px solid #D1D5DB;
 }
 
-QPushButton.MenuButton {
+QPushButton#MenuButton {
     text-align: left;
     padding: 12px 20px;
     font-size: 14px;
@@ -21,12 +21,12 @@ QPushButton.MenuButton {
     margin: 4px 10px;
 }
 
-QPushButton.MenuButton:hover {
+QPushButton#MenuButton:hover {
     background-color: #E5E7EB;
     color: #1F2937;
 }
 
-QPushButton.MenuButton:checked {
+QPushButton#MenuButton:checked {
     background-color: #DBEAFE; /* Azul claro */
     color: #1D4ED8;
 }

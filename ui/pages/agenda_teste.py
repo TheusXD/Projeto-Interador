@@ -1,16 +1,20 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox,
-    QHeaderView, QComboBox
+    QHeaderView, QComboBox, QDateTimeEdit
 )
+from PyQt6.QtCore import pyqtSignal, QDateTime
 from controllers.tudo_junto_controllers import ControladorAgenda
 from controllers.paciente_dao_controller import ControladorDoPaciente
 
 class AgendaApp(QWidget):
+    agendamento_criado = pyqtSignal()
+
     def __init__(self, db_manager):
         super().__init__()
         self.controller = ControladorAgenda(db_manager)
         self.paciente_controller = ControladorDoPaciente(db_manager)
+        self.id_em_edicao = None
         
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
@@ -24,8 +28,10 @@ class AgendaApp(QWidget):
         form_layout = QFormLayout(form_widget)
         
         self.combo_pacientes = QComboBox()
-        self.input_data = QLineEdit()
-        self.input_data.setPlaceholderText("DD/MM/AAAA HH:MM")
+        self.input_data = QDateTimeEdit()
+        self.input_data.setCalendarPopup(True)
+        self.input_data.setDisplayFormat("dd/MM/yyyy HH:mm")
+        self.input_data.setDateTime(QDateTime.currentDateTime())
         self.combo_tipo = QComboBox()
         self.combo_tipo.addItems(["Consulta", "Vacina", "Retorno", "Outro"])
         self.input_desc = QLineEdit()
@@ -46,12 +52,13 @@ class AgendaApp(QWidget):
         btn_layout.addStretch()
         self.layout.addLayout(btn_layout)
 
-        # Tabela
         self.tabela = QTableWidget()
         self.tabela.setColumnCount(5)
         self.tabela.setHorizontalHeaderLabels(["ID", "Data/Hora", "Paciente", "Tipo", "Descrição"])
         self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.tabela.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.tabela.setSortingEnabled(True)
+        self.tabela.itemDoubleClicked.connect(self.carregar_edicao)
         self.layout.addWidget(self.tabela)
 
         self.btn_excluir = QPushButton("Excluir Agendamento")
@@ -70,15 +77,59 @@ class AgendaApp(QWidget):
         self.combo_pacientes.blockSignals(False)
 
         # Carregar Tabela
+        self.tabela.setSortingEnabled(False)
         self.tabela.setRowCount(0)
         agendamentos = self.controller.listar_agendamentos()
         for row_idx, a in enumerate(agendamentos):
             self.tabela.insertRow(row_idx)
-            self.tabela.setItem(row_idx, 0, QTableWidgetItem(str(a['id'])))
+            
+            item_id = QTableWidgetItem()
+            item_id.setData(0, a['id'])
+            
+            self.tabela.setItem(row_idx, 0, item_id)
             self.tabela.setItem(row_idx, 1, QTableWidgetItem(a['data_hora']))
             self.tabela.setItem(row_idx, 2, QTableWidgetItem(a['paciente_nome'] or "Desconhecido"))
             self.tabela.setItem(row_idx, 3, QTableWidgetItem(a['tipo']))
             self.tabela.setItem(row_idx, 4, QTableWidgetItem(a['descricao']))
+        self.tabela.setSortingEnabled(True)
+        
+        self.limpar_form()
+
+    def limpar_form(self):
+        self.id_em_edicao = None
+        self.btn_salvar.setText("Agendar")
+        self.btn_salvar.setProperty("class", "SuccessButton")
+        self.btn_salvar.style().unpolish(self.btn_salvar)
+        self.btn_salvar.style().polish(self.btn_salvar)
+        
+        self.input_data.setDateTime(QDateTime.currentDateTime())
+        self.input_desc.clear()
+        self.combo_pacientes.setCurrentIndex(0)
+
+    def carregar_edicao(self, item):
+        row = item.row()
+        self.id_em_edicao = self.tabela.item(row, 0).data(0)
+        
+        agenda = self.controller.obter_agendamento(self.id_em_edicao)
+        if agenda:
+            idx = self.combo_pacientes.findData(agenda['paciente_id'])
+            if idx >= 0:
+                self.combo_pacientes.setCurrentIndex(idx)
+                
+            self.combo_tipo.setCurrentText(agenda['tipo'])
+            self.input_desc.setText(agenda['descricao'])
+            
+            try:
+                dt_obj = QDateTime.fromString(agenda['data_hora'], "dd/MM/yyyy HH:mm")
+                if dt_obj.isValid():
+                    self.input_data.setDateTime(dt_obj)
+            except:
+                pass
+
+            self.btn_salvar.setText("Atualizar Agendamento")
+            self.btn_salvar.setProperty("class", "WarningButton")
+            self.btn_salvar.style().unpolish(self.btn_salvar)
+            self.btn_salvar.style().polish(self.btn_salvar)
 
     def salvar_agendamento(self):
         paciente_id = self.combo_pacientes.currentData()
@@ -94,11 +145,15 @@ class AgendaApp(QWidget):
             QMessageBox.warning(self, "Aviso", "A data/hora é obrigatória.")
             return
 
-        self.controller.criar_agendamento(paciente_id, data_hora, tipo, desc)
-        QMessageBox.information(self, "Sucesso", "Agendamento registrado.")
-        self.input_data.clear()
-        self.input_desc.clear()
+        if self.id_em_edicao:
+            self.controller.atualizar_agendamento(self.id_em_edicao, data_hora, tipo, desc)
+            QMessageBox.information(self, "Sucesso", "Agendamento atualizado.")
+        else:
+            self.controller.criar_agendamento(paciente_id, data_hora, tipo, desc)
+            QMessageBox.information(self, "Sucesso", "Agendamento registrado.")
+            
         self.load_data()
+        self.agendamento_criado.emit()
 
     def excluir_agendamento(self):
         selected = self.tabela.currentRow()

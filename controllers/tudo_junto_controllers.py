@@ -14,6 +14,18 @@ class ControladorDasConsultas:
         query = 'SELECT * FROM consultas WHERE paciente_id = ? ORDER BY data_consulta DESC'
         return self.db.fetch_all(query, (paciente_id,))
 
+    def obter_consulta(self, consulta_id):
+        query = 'SELECT * FROM consultas WHERE id = ?'
+        return self.db.fetch_one(query, (consulta_id,))
+
+    def atualizar_consulta(self, consulta_id, data_consulta, observacoes, diagnostico, prescricao):
+        query = '''
+            UPDATE consultas
+            SET data_consulta = ?, observacoes = ?, diagnostico = ?, prescricao = ?
+            WHERE id = ?
+        '''
+        self.db.execute_query(query, (data_consulta, observacoes, diagnostico, prescricao, consulta_id))
+
     def excluir_consulta(self, consulta_id):
         query = 'DELETE FROM consultas WHERE id = ?'
         self.db.execute_query(query, (consulta_id,))
@@ -34,6 +46,10 @@ class ControlaAsVacinas:
         query = 'SELECT * FROM vacinas WHERE paciente_id = ? ORDER BY pendente DESC, data_aplicada DESC'
         return self.db.fetch_all(query, (paciente_id,))
 
+    def obter_vacina(self, vacina_id):
+        query = 'SELECT * FROM vacinas WHERE id = ?'
+        return self.db.fetch_one(query, (vacina_id,))
+
     def atualizar_status_vacina(self, vacina_id, data_aplicada, pendente):
         query = '''
             UPDATE vacinas 
@@ -41,6 +57,14 @@ class ControlaAsVacinas:
             WHERE id = ?
         '''
         self.db.execute_query(query, (data_aplicada, int(pendente), vacina_id))
+
+    def atualizar_vacina(self, vacina_id, nome_vacina, data_aplicada, pendente):
+        query = '''
+            UPDATE vacinas 
+            SET nome_vacina = ?, data_aplicada = ?, pendente = ?
+            WHERE id = ?
+        '''
+        self.db.execute_query(query, (nome_vacina, data_aplicada, int(pendente), vacina_id))
 
     def excluir_vacina(self, vacina_id):
         query = 'DELETE FROM vacinas WHERE id = ?'
@@ -61,6 +85,18 @@ class Crescimento_Grafico:
     def listar_medidas_paciente(self, paciente_id):
         query = 'SELECT * FROM crescimento WHERE paciente_id = ? ORDER BY data_medicao ASC'
         return self.db.fetch_all(query, (paciente_id,))
+
+    def obter_medida(self, medida_id):
+        query = 'SELECT * FROM crescimento WHERE id = ?'
+        return self.db.fetch_one(query, (medida_id,))
+
+    def atualizar_medida(self, medida_id, peso, altura, data_medicao):
+        query = '''
+            UPDATE crescimento
+            SET peso = ?, altura = ?, data_medicao = ?
+            WHERE id = ?
+        '''
+        self.db.execute_query(query, (peso, altura, data_medicao, medida_id))
 
     def excluir_medida(self, medida_id):
         query = 'DELETE FROM crescimento WHERE id = ?'
@@ -97,6 +133,18 @@ class ControladorAgenda:
                 ORDER BY a.data_hora ASC
             '''
             return self.db.fetch_all(query)
+
+    def obter_agendamento(self, agendamento_id):
+        query = 'SELECT * FROM agendamentos WHERE id = ?'
+        return self.db.fetch_one(query, (agendamento_id,))
+
+    def atualizar_agendamento(self, agendamento_id, data_hora, tipo, descricao=""):
+        query = '''
+            UPDATE agendamentos
+            SET data_hora = ?, tipo = ?, descricao = ?
+            WHERE id = ?
+        '''
+        self.db.execute_query(query, (data_hora, tipo, descricao, agendamento_id))
 
     def excluir_agendamento(self, agendamento_id):
         query = 'DELETE FROM agendamentos WHERE id = ?'

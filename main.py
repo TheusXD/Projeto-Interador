@@ -10,7 +10,7 @@ from ui.tela_principal_new import TelaPrincipalApp
 from ui.estilo_do_app import CSS_DO_APP
 
 def main():
-    app = QApplication(sys.path)
+    app = QApplication(sys.argv)
     app.setStyleSheet(CSS_DO_APP)
 
     # Inicializar banco de dados
