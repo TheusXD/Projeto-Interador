@@ -6,7 +6,7 @@
 ![SQLite](https://img.shields.io/badge/sqlite-3-blue.svg)
 
 ## Descrição do Projeto
-Este projeto tem como objetivo criar uma aplicação desktop amigável e funcional para suporte pediátrico. Desenvolvido em Python com PyQt6 e banco de dados SQLite, o sistema oferece recursos essenciais como registro de pacientes, acompanhamento de consultas, gestão de vacinas, monitoramento de crescimento e agendamento de horários. Tudo é organizado através de uma interface limpa, intuitiva e moderna, projetada para facilitar o dia a dia e usuários com o mínimo de conhecimento técnico.
+Este projeto é um **Projeto Integrador do curso da UNIVESP**, e tem como objetivo criar uma aplicação desktop amigável e funcional para suporte pediátrico. Desenvolvido em Python com PyQt6 e banco de dados SQLite, o sistema oferece recursos essenciais como registro de pacientes, acompanhamento de consultas, gestão de vacinas, monitoramento de crescimento e agendamento de horários. Tudo é organizado através de uma interface limpa, intuitiva e moderna, projetada para facilitar o dia a dia e usuários com o mínimo de conhecimento técnico.
 
 ### Funcionalidades
 - **Dashboard Informativo:** Visão global de consultas do mês, total de pacientes e avisos de vacinas em atraso ou agendamentos diários (banners visuais).
