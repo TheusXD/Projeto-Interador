@@ -75,3 +75,10 @@ pip install pyinstaller
 pyinstaller --noconfirm --onedir --windowed --add-data "database;database/" --name "Sistema Pediatrico" main.py
 ```
 O executável final estará disponível na pasta `dist/Sistema Pediatrico/`.
+
+## Desenvolvedores
+
+Projeto desenvolvido pelos alunos:
+- Bruno Coelho Tini
+- Felipe Camargo da Silva
+- Matheus da Silva Pinto
